@@ -121,4 +121,5 @@ data/
 
 assets/
 assets.*
-assets
+assetsunitree_sim_isaaclab_usds/
+__pycache__/

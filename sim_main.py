@@ -357,6 +357,36 @@ def main():
         )
     env.sim.reset()
     env.reset()
+
+    # print camera intrinsics once after reset (matches sensor output used for shared-memory images)
+    try:
+        print("========= camera intrinsics =========")
+        camera_keys = [name for name in env.scene.keys() if "camera" in name.lower()]
+        if not camera_keys:
+            print("[intrinsics] no camera sensors found in env.scene")
+        else:
+            for cam_name in camera_keys:
+                try:
+                    sensor = env.scene[cam_name]
+                    intrinsics = getattr(sensor.data, "intrinsic_matrices", None)
+                    rgb_output = sensor.data.output.get("rgb", None) if hasattr(sensor.data, "output") else None
+
+                    resolution = "unknown"
+                    if rgb_output is not None and len(rgb_output) > 0:
+                        h, w = rgb_output[0].shape[:2]
+                        resolution = f"{w}x{h}"
+
+                    if intrinsics is None or intrinsics.numel() == 0:
+                        print(f"[intrinsics] {cam_name} ({resolution}) intrinsic_matrices unavailable")
+                        continue
+
+                    K = intrinsics[0].detach().cpu().tolist()
+                    print(f"[intrinsics] {cam_name} ({resolution}) K={K}")
+                except Exception as e:
+                    print(f"[intrinsics] failed for {cam_name}: {e}")
+        print("========= camera intrinsics done =========")
+    except Exception as e:
+        print(f"[intrinsics] collection failed: {e}")
     
     # create simplified control configuration
     try:    
@@ -455,6 +485,8 @@ def main():
         
         reward_interval = max(1, args_cli.reward_interval)
 
+
+## the loop!
         # use torch.inference_mode() and exception suppression
         with contextlib.suppress(KeyboardInterrupt), torch.inference_mode():
             while simulation_app.is_running() and controller.is_running:

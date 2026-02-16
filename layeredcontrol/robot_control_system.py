@@ -9,6 +9,8 @@ from typing import Optional, Dict, Any
 import torch
 from dataclasses import dataclass
 from action_provider.action_base import ActionProvider
+from tasks.common_observations.g1_29dof_state import ensure_quat_w_first, quat_to_rot_matrix
+
 
 
 @dataclass
@@ -125,6 +127,50 @@ class RobotController:
                 # self.env.sim.render()
             else:
                 self.env.step(action)
+
+                ### edits for transform ###
+                if self.step_count == 1:
+                    names = list(self.env.scene["robot"].data.body_names)
+                    print("num bodies:", len(names))
+                    print("has imu_in_torso:", "imu_in_torso" in names)
+                    print("has left_hand_camera_base_link:", "left_hand_camera_base_link" in names)
+
+
+                if self.step_count % 60 == 0:
+                    data = self.env.scene["robot"].data
+                    names = list(data.body_names)
+
+                    torso_name = "imu_in_torso"
+                    cam_name = "left_hand_camera_base_link"
+                    i_torso = names.index(torso_name)
+                    i_cam = names.index(cam_name)
+
+                    pose = data.body_link_pose_w  # [B,N,7]
+                    p_t = pose[0:1, i_torso, :3]
+                    q_t = pose[0:1, i_torso, 3:7]
+                    p_c = pose[0:1, i_cam, :3]
+                    q_c = pose[0:1, i_cam, 3:7]
+
+                    # ensure quats are (w,x,y,z) before building R
+                    q_t = ensure_quat_w_first(q_t, assume_w_first=None)
+                    q_c = ensure_quat_w_first(q_c, assume_w_first=None)
+
+                    R_w_t = quat_to_rot_matrix(q_t)[0]   # 3x3
+                    R_w_c = quat_to_rot_matrix(q_c)[0]   # 3x3
+
+                    # T_torso_cam:
+                    R_t_c = R_w_t.T @ R_w_c
+                    t_t_c = (R_w_t.T @ (p_c[0] - p_t[0]).unsqueeze(-1)).squeeze(-1)
+
+                    print("R_torso_cam:\n", R_t_c.cpu().numpy())
+                    print("t_torso_cam:", t_t_c.cpu().numpy())
+
+
+                #### end
+
+
+
+
             env_time = perf_counter() - env_start
             
             self.step_count += 1
