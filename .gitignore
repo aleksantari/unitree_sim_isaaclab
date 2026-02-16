@@ -75,6 +75,7 @@ kit/
 logs/
 videos/
 screenshots/
+snapshots/
 *.usda
 
 
