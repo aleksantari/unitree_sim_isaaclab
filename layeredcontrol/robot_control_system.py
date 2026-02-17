@@ -10,6 +10,7 @@ import torch
 from dataclasses import dataclass
 from action_provider.action_base import ActionProvider
 from tasks.common_observations.g1_29dof_state import quat_to_rot_matrix
+from tools.shared_memory_utils import TransformWriter
 
 
 
@@ -55,7 +56,12 @@ class RobotController:
         # cache the function reference (reduce the lookup overhead)
         self._perf_counter = time.perf_counter
         self._time_sleep = time.sleep
-        
+
+        # transform shared memory for calibration data collection
+        self._transform_writer = TransformWriter()
+        body_names = env.scene["robot"].data.body_names
+        self._cam_base_body_idx = body_names.index("left_hand_camera_base_link")
+
         print(f"  - control frequency: {config.step_hz}Hz")
     
     def set_action_provider(self, provider: ActionProvider):
@@ -127,6 +133,20 @@ class RobotController:
                 # self.env.sim.render()
             else:
                 self.env.step(action)
+
+                # write world→cam_base to shared memory every step (for snap_left_wrist.py)
+                try:
+                    body_pose_w = self.env.scene["robot"].data.body_link_pose_w
+                    p_cb = body_pose_w[0, self._cam_base_body_idx, :3]
+                    q_cb = body_pose_w[0, self._cam_base_body_idx, 3:7]
+                    R_w_cb = quat_to_rot_matrix(q_cb.unsqueeze(0))[0]
+                    self._transform_writer.write(
+                        int(time.time() * 1000),
+                        p_cb.cpu().numpy(),
+                        R_w_cb.cpu().numpy()
+                    )
+                except Exception:
+                    pass
 
                 ### ground truth camera→tag transform ###
                 if self.step_count % 60 == 0:
@@ -208,6 +228,7 @@ class RobotController:
         self.stop()
         if self.action_provider:
             self.action_provider.cleanup()
+        self._transform_writer.close()
     
     def set_profiling(self, enabled: bool, interval: int = 2000):
         """set the performance analysis"""

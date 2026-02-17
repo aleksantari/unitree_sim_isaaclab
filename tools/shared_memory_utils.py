@@ -426,4 +426,64 @@ class SharedMemoryReader:
         return images.get('head') if images else None
     
     def close(self):
-        self.multi_reader.close() 
+        self.multi_reader.close()
+
+
+# --- Transform shared memory (for eye-in-hand calibration) ---
+
+TRANSFORM_SHM_NAME = "isaac_cam_base_transform_shm"
+TRANSFORM_SHM_SIZE = 128  # uint64 timestamp + 12 float64s = 104 bytes
+
+
+class TransformWriter:
+    """Writes world→cam_base transform (pos + rotation matrix) to shared memory."""
+
+    def __init__(self):
+        self.shm = None
+
+    def write(self, timestamp_ms: int, position: np.ndarray, rotation_matrix: np.ndarray):
+        """Write transform. position: [3], rotation_matrix: [3,3]."""
+        if self.shm is None:
+            try:
+                self.shm = shared_memory.SharedMemory(name=TRANSFORM_SHM_NAME)
+            except FileNotFoundError:
+                self.shm = shared_memory.SharedMemory(
+                    create=True, size=TRANSFORM_SHM_SIZE, name=TRANSFORM_SHM_NAME)
+
+        data = struct.pack('<Q3d9d', timestamp_ms,
+                           *position.flat, *rotation_matrix.flat)
+        self.shm.buf[:len(data)] = data
+
+    def close(self):
+        if self.shm:
+            self.shm.close()
+            self.shm = None
+
+
+class TransformReader:
+    """Reads world→cam_base transform from shared memory."""
+
+    def __init__(self):
+        self.shm = None
+
+    def read(self):
+        """Returns (timestamp_ms, position[3], rotation_matrix[3,3]) or None."""
+        if self.shm is None:
+            try:
+                self.shm = shared_memory.SharedMemory(name=TRANSFORM_SHM_NAME)
+            except FileNotFoundError:
+                return None
+
+        fmt = '<Q3d9d'
+        size = struct.calcsize(fmt)
+        data = bytes(self.shm.buf[:size])
+        vals = struct.unpack(fmt, data)
+        timestamp_ms = vals[0]
+        position = np.array(vals[1:4])
+        rotation_matrix = np.array(vals[4:13]).reshape(3, 3)
+        return timestamp_ms, position, rotation_matrix
+
+    def close(self):
+        if self.shm:
+            self.shm.close()
+            self.shm = None

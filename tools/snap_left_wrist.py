@@ -1,22 +1,42 @@
 #!/usr/bin/env python3
 # Snap images on demand from Isaac Sim shared memory (left/right/head).
+# Also saves the corresponding world→cam_base transform for calibration.
 
 import argparse
+import json
 import os
 import time
 from datetime import datetime
 
 import cv2
 
-from tools.shared_memory_utils import MultiImageReader
+from tools.shared_memory_utils import MultiImageReader, TransformReader
 
 
-def _save_image(img, out_dir: str, prefix: str, ext: str) -> str:
+def _save_capture(img, transform_data, out_dir: str, prefix: str, ext: str):
+    """Save image and transform with matching timestamps."""
     os.makedirs(out_dir, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    path = os.path.join(out_dir, f"{prefix}_{ts}.{ext}")
-    cv2.imwrite(path, img)
-    return path
+    base = f"{prefix}_{ts}"
+
+    img_path = os.path.join(out_dir, f"{base}.{ext}")
+    cv2.imwrite(img_path, img)
+
+    if transform_data is not None:
+        timestamp_ms, position, rotation_matrix = transform_data
+        tf_path = os.path.join(out_dir, f"{base}.json")
+        payload = {
+            "world_to_cam_base": {
+                "position": position.tolist(),
+                "rotation_matrix": rotation_matrix.tolist(),
+            },
+            "timestamp_ms": int(timestamp_ms),
+        }
+        with open(tf_path, "w") as f:
+            json.dump(payload, f, indent=2)
+        print(f"Saved {img_path} + {tf_path}")
+    else:
+        print(f"Saved {img_path} (no transform available)")
 
 
 def _wait_for_frame(reader: MultiImageReader, source: str, timeout_s: float):
@@ -42,6 +62,7 @@ def main():
     args = parser.parse_args()
 
     reader = MultiImageReader()
+    tf_reader = TransformReader()
 
     if args.preview:
         print("Preview mode: press 's' to save, 'q' to quit.")
@@ -56,11 +77,11 @@ def main():
                 if img is None:
                     print("No frame available to save.")
                 else:
-                    path = _save_image(img, args.out_dir, args.prefix, args.ext)
-                    print(f"Saved {path}")
+                    _save_capture(img, tf_reader.read(), args.out_dir, args.prefix, args.ext)
             elif key == ord("q"):
                 break
         cv2.destroyAllWindows()
+        tf_reader.close()
         return
 
     print("Press Enter to capture, or type 'q' then Enter to quit.")
@@ -72,8 +93,9 @@ def main():
         if img is None:
             print("No frame available to save.")
             continue
-        path = _save_image(img, args.out_dir, args.prefix, args.ext)
-        print(f"Saved {path}")
+        _save_capture(img, tf_reader.read(), args.out_dir, args.prefix, args.ext)
+
+    tf_reader.close()
 
 
 if __name__ == "__main__":

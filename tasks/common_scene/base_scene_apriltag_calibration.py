@@ -47,7 +47,7 @@ class TableAprilTagCalibrationSceneCfg(InteractiveSceneCfg):
     apriltag = AssetBaseCfg(
         prim_path="/World/envs/env_.*/AprilTag",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=[-4.12665, -4.03, 0.815],
+            pos=[-4.067, -4.2, 0.80],
             rot=[1, 0, 0, 0]
         ),
         spawn=UsdFileCfg(
