@@ -47,7 +47,7 @@ class TableAprilTagCalibrationSceneCfg(InteractiveSceneCfg):
     apriltag = AssetBaseCfg(
         prim_path="/World/envs/env_.*/AprilTag",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=[-4.25, -4.03, 0.84],
+            pos=[-4.12665, -4.03, 0.815],
             rot=[1, 0, 0, 0]
         ),
         spawn=UsdFileCfg(
@@ -61,6 +61,6 @@ class TableAprilTagCalibrationSceneCfg(InteractiveSceneCfg):
     # 4. world camera
     world_camera = CameraBaseCfg.get_camera_config(
         prim_path="/World/PerspectiveCamera",
-        pos_offset=(-4.1, -4.9, 1.8),
+        pos_offset=(-4.1, -4.9, 1.0),
         rot_offset=(-0.3173, 0.94833, 0.0, 0.0)
     )
