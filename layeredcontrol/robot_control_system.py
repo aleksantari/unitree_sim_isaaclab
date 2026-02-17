@@ -154,6 +154,29 @@ class RobotController:
                         print(f"[GT] camera→tag rotation:\n{R_cam_tag.cpu().numpy()}")
                     except Exception as e:
                         print(f"[GT] transform extraction error: {e}")
+
+                    # world → left_hand_camera_base_link
+                    try:
+                        robot_data = self.env.scene["robot"].data
+                        body_names = robot_data.body_names
+                        cb_idx = body_names.index("left_hand_camera_base_link")
+                        body_pose_w = robot_data.body_link_pose_w  # [B, N, 7]
+                        p_cb = body_pose_w[0, cb_idx, :3]
+                        q_cb = body_pose_w[0, cb_idx, 3:7]        # (w,x,y,z)
+                        R_w_cb = quat_to_rot_matrix(q_cb.unsqueeze(0))[0]
+                        print(f"[GT] world→cam_base translation: {p_cb.cpu().numpy()}")
+                        print(f"[GT] world→cam_base rotation:\n{R_w_cb.cpu().numpy()}")
+                    except Exception as e:
+                        print(f"[GT] cam_base transform error: {e}")
+
+                    # solved: left_hand_camera_base_link → left_wrist_camera
+                    try:
+                        R_cb_cam = R_w_cb.T @ R_w_cam
+                        t_cb_cam = R_w_cb.T @ (p_cam - p_cb)
+                        print(f"[GT] cam_base→camera translation: {t_cb_cam.cpu().numpy()}")
+                        print(f"[GT] cam_base→camera rotation:\n{R_cb_cam.cpu().numpy()}")
+                    except Exception as e:
+                        print(f"[GT] cam_base→camera solve error: {e}")
                 #### end
 
 
