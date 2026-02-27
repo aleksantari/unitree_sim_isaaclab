@@ -1,374 +1,290 @@
-<div align="center">
-  <h1 align="center"> unitree_sim_isaaclab </h1>
-  <h3 align="center"> Unitree Robotics </h3>
-  <p align="center">
-    <a> English </a> | <a href="README_zh-CN.md">中文</a> 
-  </p>
-  <a href="https://discord.gg/ZwcVwxv5rq" target="_blank"><img src="https://img.shields.io/badge/-Discord-5865F2?style=flat&logo=Discord&logoColor=white" alt="Unitree LOGO"></a>
-</div>
+# AprilTag Eye-in-Hand Calibration — Branch Guide
 
-## Important Notes First
-- Please use the [officially recommended](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html) hardware resources for deployment
-- The simulator may take some time to load resources during its first startup, and the waiting time depends on hardware performance and network environment
-- After the simulator starts running, it will send/receive the same DDS topics as the real robot (Please note to distinguish between the simulator and real robot if there is a real robot running on the same network). For specific DDS usage, please refer to[G1 Control](https://github.com/unitreerobotics/unitree_sdk2_python/tree/master/example/g1) and [Dex3 Dexterous Hand Control](https://github.com/unitreerobotics/unitree_sdk2/blob/main/example/g1/dex3/g1_dex3_example.cpp)
-- The weight files provided in this project are only for simulation environment testing
-- Currently, our project has only been tested on RTX 3080, RTX 3090, and RTX 4090 GPUs. For the RTX 50 series GPUs, please use Isaac Sim version 5.0.0
-- After the virtual scene starts up, please click PerspectiveCamera -> Cameras -> PerspectiveCamera to view the main view scene. The operation steps are shown below:
-<table align="center">
-    <tr>
-    <td align="center">
-        <img src="./img/mainview.png" width="300" alt="G1-gripper-cylinder"/>
-      <br/>
-      <code>Main View Finding Steps</code>
-    </td>
-    </tr>
-</table>
+**Branch:** `apriltag-calibration-task`
+**Base repo:** [unitree_sim_isaaclab](https://github.com/unitreerobotics/unitree_sim_isaaclab)
 
-## 1、 📖 Introduction
+This branch adds a complete eye-in-hand camera calibration pipeline to the simulator. It enables you to solve for the fixed transform between the robot's wrist camera (`left_wrist_camera`) and its mounting link (`left_hand_camera_base_link`) using an AprilTag as a calibration target.
 
-This project is built on **Isaac Lab** to simulate **Unitree robots** in various tasks, facilitating data collection, playback, generation, and model validation. It can be used in conjunction with the [xr_teleoperate](https://github.com/unitreerobotics/xr_teleoperate) repository for dataset collection. The project adopts the same DDS communication protocol as the real robot to enhance code generality and ease of use.
+---
 
-Currently, the project employs Unitree G1/H1-2 robots equipped with different actuators, and provides simulation scenarios for multiple tasks. The task names and corresponding illustrations are summarized in the table below. Tasks that include `Wholebody` in their names enable mobile operations.
+## Overview
 
-<table align="center">
-  <tr>
-    <th>G1-29dof-gripper</th>
-    <th>G1-29dof-dex3</th>
-    <th>G1-29dof-inspire</th>
-    <th>H1-2-inspire</th>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./img/pickplace_clinder_g129_dex1.png" width="300" alt="G1-gripper-cylinder"/>
-      <br/>
-      <code>Isaac-PickPlace-Cylinder-G129-Dex1-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/pickplace_clinder_g129_dex3.png" width="300" alt="G1-dex3-cylinder"/>
-      <br/>
-      <code>Isaac-PickPlace-Cylinder-G129-Dex3-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/Isaac-PickPlace-Cylinder-G129-Inspire-Joint.png" width="300" alt="G1-dex3-cylinder"/>
-      <br/>
-      <code>Isaac-PickPlace-Cylinder-G129-Inspire-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/Isaac-PickPlace-Cylinder-H12-27dof-Inspire-Joint.png" width="300" alt="G1-gripper-redblock"/>
-      <br/>
-      <code>Isaac-PickPlace-Cylinder-H12-27dof-Inspire-Joint</code>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./img/pickplace_redblock_g129_dex1.png" width="300" alt="G1-gripper-redblock"/>
-      <br/>
-      <code>Isaac-PickPlace-RedBlock-G129-Dex1-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/pickplace_redblock_g129_dex3.png" width="300" alt="G1-dex3-redblock"/>
-      <br/>
-      <code>Isaac-PickPlace-RedBlock-G129-Dex3-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/Isaac-PickPlace-RedBlock-G129-Inspire-Joint.png" width="300" alt="G1-dex3-redblock"/>
-      <br/>
-      <code>Isaac-PickPlace-RedBlock-G129-Inspire-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/Isaac-PickPlace-RedBlock-H12-27dof-Inspire-Joint.png" width="300" alt="G1-dex3-redblock"/>
-      <br/>
-      <code>Isaac-PickPlace-RedBlock-H12-27dof-Inspire-Joint</code>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./img/stack_rgyblock_g129_dex1.png" width="300" alt="G1-gripper-redblock"/>
-      <br/>
-      <code>Isaac-Stack-RgyBlock-G129-Dex1-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/stack_rgyblock_g129_dex3.png" width="300" alt="G1-dex3-redblock"/>
-      <br/>
-      <code>Isaac-Stack-RgyBlock-G129-Dex3-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/Isaac-Stack-RgyBlock-G129-Inspire-Joint.png" width="300" alt="G1-dex3-redblock"/>
-      <br/>
-      <code>Isaac-Stack-RgyBlock-G129-Inspire-Joint</code>
-    </td>
-    <td align="center">
-      <img src="./img/Isaac-Stack-RgyBlock-H12-27dof-Inspire-Joint.png" width="300" alt="G1-dex3-redblock"/>
-      <br/>
-      <code> Isaac-Stack-RgyBlock-H12-27dof-Inspire-Joint</code>
-    </td>
-  </tr>
-    <tr>
-    <td align="center">
-      <img src="./img/Isaac-Move-Cylinder-G129-Dex1-Wholebody.png" width="300" alt="G1-gripper-redblock"/>
-      <br/>
-      <code>Isaac-Move-Cylinder-G129-Dex1-Wholebody</code>
-    </td>
-    <td align="center">
-      <img src="./img/Isaac-Move-Cylinder-G129-Dex3-Wholebody.png" width="300" alt="G1-dex3-redblock"/>
-      <br/>
-      <code>Isaac-Move-Cylinder-G129-Dex3-Wholebody</code>
-    </td>
-    <td align="center">
-      <img src="./img/Isaac-Move-Cylinder-G129-Inspire-Wholebody.png" width="300" alt="G1-dex3-redblock"/>
-      <br/>
-      <code>Isaac-Move-Cylinder-G129-Inspire-Wholebody</code>
-    </td>
-  </tr>
-</table>
+Eye-in-hand calibration solves the classic **AX = XB** problem:
+- **A** = relative motion of the robot end-effector in the world frame
+- **B** = relative motion of the camera-observed calibration target
+- **X** = the unknown fixed camera extrinsic (cam_base → camera)
 
-## 2、⚙️ Environment Setup and Running
+This branch provides:
+1. A static AprilTag USD asset as the calibration target
+2. A dedicated IsaacLab task (`Isaac-AprilTag-Calibration-G129-Dex3-Joint`) with the G1 robot
+3. A shared-memory data collection pipeline that synchronizes captured images with robot transforms
+4. Ground truth logging for validation
 
-This project requires Isaac Sim 4.5.0/Isaac Sim 5.0.0 and Isaac Lab. You can refer to the [official installation guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html)  or follow the steps below. The installation methods for Ubuntu 20.04 and Ubuntu 22.04 (and later versions) are different. Please choose the installation method based on your system version and GPU resources.
+---
 
-### 2.1 Isaac Sim 4.5.0 Environment Installation
+## Branch Changes
 
-Please refer to the <a href="doc/isaacsim4.5_install.md">Isaac Sim 4.5.0 Environment Installation Steps</a> for the setup.
+| File | Status | Purpose |
+|------|--------|---------|
+| `assets/objects/apriltag_block/create_apriltag_block.py` | NEW | Programmatically generates the AprilTag USD asset using the `pxr` API |
+| `assets/objects/apriltag_block/apriltag_14.png` | NEW | AprilTag texture (tag36h11, ID 14) copied from warehouse scene assets |
+| `assets/objects/apriltag_block/apriltag_block.usd` | NEW | Generated 5cm × 5cm × 3mm thin block USD with AprilTag texture on top face |
+| `tasks/common_scene/base_scene_apriltag_calibration.py` | NEW | Scene config: warehouse room + packing table + static AprilTag at 10cm scale |
+| `tasks/g1_tasks/apriltag_calibration_g1_29dof_dex3/__init__.py` | NEW | Gym task registration for `Isaac-AprilTag-Calibration-G129-Dex3-Joint` |
+| `tasks/g1_tasks/apriltag_calibration_g1_29dof_dex3/apriltag_calibration_g1_29dof_dex3_joint_env_cfg.py` | NEW | Full MDP env config (robot + cameras + 10-min episodes + stub reward) |
+| `tasks/g1_tasks/apriltag_calibration_g1_29dof_dex3/mdp/` | NEW | MDP modules (observations, stub zero reward) |
+| `tasks/g1_tasks/__init__.py` | MODIFIED | Imports and registers the new task |
+| `tools/shared_memory_utils.py` | MODIFIED | Added `TransformWriter` and `TransformReader` classes for IPC |
+| `layeredcontrol/robot_control_system.py` | MODIFIED | Publishes world→cam_base transform to shared memory each sim step; logs GT transforms every 60 steps |
+| `tools/snap_left_wrist.py` | MODIFIED | Rewritten to save paired `.png` + `.json` (image + world→cam_base transform) on each capture |
 
-### 2.2 Isaac Sim 5.0.0 Environment Installation
+---
 
-Please refer to the <a href="doc/isaacsim5.0_install.md">Isaac Sim 5.0.0 Environment Installation Steps</a> for the setup.
-
-### 2.3 Build the Docker Environment (Using Ubuntu 22.04 / IsaacSim 5.0)
-
-#### 2.3.1 Build the Docker environment
-```shell
-sudo docker pull nvidia/cuda:12.2.0-runtime-ubuntu22.04
-cd unitree_sim_isaaclab
-sudo docker build \
-  --build-arg http_proxy=http://127.0.0.1:7890 \
-  --build-arg https_proxy=http://127.0.0.1:7890 \
-  -t unitree-sim:latest -f Dockerfile .
-
-# If you need to use a proxy, please fill in
-# --build-arg http_proxy=http://127.0.0.1:7890 --build-arg https_proxy=http://127.0.0.1:7890
-```
-
-#### 2.3.2 Enter the Docker environment
-
-```shell
-xhost +local:docker
-
-sudo docker run --gpus all -it --rm   --network host   -e NVIDIA_VISIBLE_DEVICES=all   -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics,display   -e LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH   -e DISPLAY=$DISPLAY   -e VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json   -v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro   -v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro   -v /tmp/.X11-unix:/tmp/.X11-unix:rw   -v /home/unitree/newDisk/unitree_sim_isaaclab_usds:/home/code/isaacsim_assets   unitree-sim /bin/bash
-
-# The option `-v /home/unitree/newDisk/unitree_sim_isaaclab_usds:/home/code/isaacsim_assets` maps the `unitree_sim_isaaclab_usds` directory on the host machine to `isaacsim_assets` inside the Docker container, making it convenient to share data between the host and the container. Please modify it according to your own setup.
-```
-
-### 2.4 Run Program
-
-#### 2.4.1 Asset Download
-
-Use the following command to download the required asset files
+## Full Pipeline
 
 ```
-sudo apt update
-
-sudo apt install git-lfs
-
-. fetch_assets.sh
+┌─────────────────────────────────────┐
+│  Isaac Sim (this repo)              │
+│                                     │
+│  1. Launch calibration task         │
+│  2. Teleop robot arm to ~20+ poses  │
+│  3. Press Enter to capture          │
+│     → saves image + transform pair  │
+└──────────────┬──────────────────────┘
+               │ snapshots/*.png
+               │ snapshots/*.json
+               ▼
+┌─────────────────────────────────────┐
+│  External detector repo             │
+│                                     │
+│  4. Batch detect AprilTag in images │
+│     → produces cam→tag transforms   │
+│  5. Merge with world→cam_base JSONs │
+│     → calibration_pairs.json        │
+└──────────────┬──────────────────────┘
+               │ calibration_pairs.json
+               ▼
+┌─────────────────────────────────────┐
+│  Calibration script                 │
+│                                     │
+│  6. cv2.calibrateHandEye(...)       │
+│     → cam_base→camera extrinsic     │
+└─────────────────────────────────────┘
 ```
 
-#### 2.4.2 Teleoperation
+---
 
-```
-python sim_main.py --device cpu  --enable_cameras  --task  Isaac-PickPlace-Cylinder-G129-Dex1-Joint    --enable_dex1_dds --robot_type g129
-```
+## Prerequisites
 
-- --task: Task name, corresponding to the task names in the table above
-- --enable_dex1_dds/--enable_dex3_dds: Represent enabling DDS for two-finger gripper/three-finger dexterous hand respectively  
-- --robot_type: Robot type, currently has 29-DOF unitree g1 (g129),27-DoF H1-2
-- --headless: This allows running without launching the simulation window. Add this parameter if you're using a Docker environment.
+**This repo (isaaclab-unitree conda env):**
+- IsaacLab + Isaac Sim installed per the main README
+- `xr_teleoperate` package for DDS-based robot teleoperation
 
-**Note:** If you need to control robot movement, please refer to `send_commands_8bit.py` or `send_commands_keyboard.py` to publish control commands, or you can use them directly. Please note that only tasks marked with `Wholebody` are mobile tasks and can control the robot's movement.
-
-#### 2.4.3 Data Replay
-
-```
-python sim_main.py --device cpu  --enable_cameras  --task Isaac-Stack-RgyBlock-G129-Dex1-Joint     --enable_dex1_dds --robot_type g129 --replay  --file_path "/home/unitree/Code/xr_teleoperate/teleop/utils/data" 
-```
-- --replay: Specifies whether to perform data replay.
-
-- --file_path: Directory where the dataset is stored (please update this to your own dataset path).
-
-
-**Note:** The dataset format used here is consistent with the one recorded via teleoperation in [xr_teleoperate](https://github.com/unitreerobotics/xr_teleoperate) .
-
-**Note:** For task-discrete rewards, you can use the `get_step_reward_value` function to retrieve them.
-
-
-#### 2.4.4 Data Generation
-During data replay, by modifying lighting conditions and camera parameters and re-capturing image data, more diverse visual features can be generated for data augmentation, thereby improving the model’s generalization ability.
-```
-python sim_main.py --device cpu  --enable_cameras  --task Isaac-Stack-RgyBlock-G129-Dex1-Joint     --enable_dex1_dds --robot_type g129 --replay  --file_path "/home/unitree/Code/xr_teleoperate/teleop/utils/data" --generate_data --generate_data_dir "./data2"
+**External detector/calibration repo (separate conda env):**
+```bash
+pip install dt-apriltags opencv-python numpy scipy
 ```
 
-- --generate_data: Enables generation of new data.
+---
 
-- --generate_data_dir: Directory to store the newly generated data.
+## Step 1: Launch the Calibration Sim
 
-- --rerun_log: Enables logging during data generation.
-
-- --modify_light: Enables modification of lighting conditions (you need to adjust the update_light function in main accordingly).
-
-- --modify_camera: Enables modification of camera parameters (you need to adjust the batch_augment_cameras_by_name function in main accordingly).
-
-**Note:**
-If you wish to modify lighting or camera parameters, please tune and test the parameters carefully before performing large-scale data generation.
-
-## 3、Task Scene Construction
-
-### 3.1 Code Structure
-
-```
-unitree_sim_isaaclab/
-│
-├── action_provider                   [Action providers, provides interfaces for reading file actions, receiving DDS actions, policy-generated actions, etc. Currently mainly uses DDS-based action acquisition]
-│
-├── dds                               [DDS communication module, implements DDS communication for g1, gripper, and three-finger dexterous hand]
-│
-├── image_server                      [Image publishing service, uses ZMQ for image publishing]
-│
-├── layeredcontrol                    [Low-level control module, gets actions and sets them in virtual environment]
-│
-├── robots                            [Basic robot configurations]
-│
-├── tasks                             [Task-related files]
-│   ├── common_config
-│   │     ├── camera_configs.py       [Camera placement related configurations]
-│   │     ├── robot_configs.py        [Robot setup related configurations]
-│   │
-│   ├── common_event
-│   │      ├── event_manager.py       [Event registration management]  
-│   │
-│   ├── common_observations
-│   │      ├── camera_state.py        [Camera data acquisition]  
-│   │      ├── dex3_state.py          [Three-finger dexterous hand data acquisition]
-│   │      ├── g1_29dof_state.py      [Robot state data acquisition]
-│   │      ├── gripper_state.py       [Gripper data acquisition]
-│   │
-│   ├── common_scene                
-│   │      ├── base_scene_pickplace_cylindercfg.py         [Common scene for cylinder grasping task]  
-│   │      ├── base_scene_pickplace_redblock.py            [Common scene for red block grasping task] 
-│   │
-│   ├── common_termination                                 [Judgment of whether objects in different tasks exceed specified working range]
-│   │      ├── base_termination_pick_place_cylinder         
-│   │      ├── base_termination_pick_place_redblock 
-│   │
-│   ├── g1_tasks                                            [All g1-related tasks]
-│   │      ├── pick_place_cylinder_g1_29dof_dex1            [Cylinder grasping task]
-│   │      │     ├── mdp                                      
-│   │      │     │     ├── observations.py                  [Observation data]
-│   │      │     │     ├── terminations.py                  [Termination judgment conditions]
-│   │      │     ├── __init__.py                            [Task name registration]  
-│   │      │     ├── pickplace_cylinder_g1_29dof_dex1_joint_env_cfg.py           [Task-specific scene import and related class initialization]
-│   │      ├── ...
-│   │      ├── __init__.py                                  [Display all task names existing in g1]
-│   ├── utils                                               [Utility functions]
-├── tools                                                   [USD conversion and modification related tools]
-├── usd                                                     [USD model files]
-├── sim_main.py                                             [Main function] 
-├── reset_pose_test.py                                      [Test function for object position reset] 
+```bash
+python sim_main.py \
+    --device cuda \
+    --enable_cameras \
+    --task Isaac-AprilTag-Calibration-G129-Dex3-Joint \
+    --enable_dex3_dds \
+    --robot_type g129
 ```
 
-### 3.2 Task Scene Construction Steps
-If using existing robot configurations (G1-29dof-gripper, G1-29dof-dex3) to build new task scenes, just follow the steps below:
+The sim spawns the G1 robot base-fixed on the packing table with a 10cm AprilTag placed in front of it. Episode length is 10 minutes.
 
-#### 3.2.1、Build Common Parts of Task Scene (i.e., scenes other than the robot)
-According to existing task configurations, add new task common scene configurations in the common_scene directory. You can refer to existing task common configuration files.
-#### 3.2.2 Termination or Object Reset Condition Judgment
-Add termination or object reset judgment conditions according to your scene needs in the common_termination directory
-#### 3.2.3 Add and Register Tasks
-Add new task directories in the g1_tasks directory and modify related files following existing tasks. Taking the pick_place_cylinder_g1_29dof_dex1 task as an example:
+> **Viewport tip:** If you cannot zoom close enough in the viewport, click the AprilTag or robot, press `F` to re-focus, then zoom. Alternatively use `Alt + Right-click drag` for true dolly (no pivot limit).
 
-- observations.py: Add corresponding observation functions, just import the corresponding files as needed
- ```
+### Ground truth logging
 
-# Copyright (c) 2025, Unitree Robotics Co., Ltd. All Rights Reserved.
-# License: Apache License, Version 2.0  
-from tasks.common_observations.g1_29dof_state import get_robot_boy_joint_states
-from tasks.common_observations.gripper_state import get_robot_gipper_joint_states
-from tasks.common_observations.camera_state import get_camera_image
-
-# ensure functions can be accessed by external modules
-__all__ = [
-    "get_robot_boy_joint_states",
-    "get_robot_gipper_joint_states", 
-    "get_camera_image"
-]
-
- ```
-- terminations.py: Add corresponding condition judgment functions, import corresponding files from common_termination
- ```
- from tasks.common_termination.base_termination_pick_place_cylinder import reset_object_estimate
-__all__ = [
-"reset_object_estimate"
-]
- ```
-
-- pick_place_cylinder_g1_29dof_dex1/```__init__.py ```
-
-Add ```__init__.py``` in the new task directory and add task name, as shown in the ```__init__.py``` under pick_place_cylinder_g1_29dof_dex1:
+Every 60 simulation steps, the following transforms are printed to the terminal for validation:
 
 ```
-# Copyright (c) 2025, Unitree Robotics Co., Ltd. All Rights Reserved.
-# License: Apache License, Version 2.0  
+[GT] camera→tag:       R and t of the AprilTag in the camera frame
+[GT] world→cam_base:   Pose of left_hand_camera_base_link in world
+[GT] cam_base→camera:  Solved cam_base→camera (ground truth answer)
+```
 
-import gymnasium as gym
+Use these to validate your detector output and final calibration result.
 
-from . import pickplace_cylinder_g1_29dof_dex1_joint_env_cfg
+---
 
+## Step 2: Collect the Dataset
 
-gym.register(
-    id="Isaac-PickPlace-Cylinder-G129-Dex1-Joint",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    kwargs={
-        "env_cfg_entry_point": pickplace_cylinder_g1_29dof_dex1_joint_env_cfg.PickPlaceG129DEX1BaseFixEnvCfg,
+In a **second terminal**, run the capture tool:
+
+```bash
+# Preview mode (recommended) — see live camera feed, press 's' to capture
+python tools/snap_left_wrist.py --preview --out_dir snapshots --prefix left_wrist
+
+# CLI mode — press Enter to capture, 'q' + Enter to quit
+python tools/snap_left_wrist.py --out_dir snapshots --prefix left_wrist
+```
+
+**Collection workflow:**
+1. Use `xr_teleoperate` to move the wrist camera to a pose where the AprilTag is clearly visible
+2. **Stop moving** and let the robot settle (~1 second)
+3. Press `s` (preview) or Enter (CLI) to capture
+4. Move to a new pose — vary position, distance, and viewing angle significantly
+5. Collect **at least 20 poses** for robust calibration (more is better)
+
+**Output per capture:**
+```
+snapshots/left_wrist_YYYYMMDD_HHMMSS_ffffff.png   ← 640×480 RGB camera image
+snapshots/left_wrist_YYYYMMDD_HHMMSS_ffffff.json  ← world→cam_base transform
+```
+
+**JSON format:**
+```json
+{
+  "world_to_cam_base": {
+    "position": [x, y, z],
+    "rotation_matrix": [[r00, r01, r02],
+                        [r10, r11, r12],
+                        [r20, r21, r22]]
+  },
+  "timestamp_ms": 1234567890
+}
+```
+
+> The `.png` and `.json` files share the same timestamp prefix — this is what links them as a matched pair.
+
+---
+
+## Step 3: Run AprilTag Detection (External Repo)
+
+In your external detector environment, batch-process all captured images to produce `cam→tag` transforms. Key parameters:
+
+| Parameter | Value | Explanation |
+|-----------|-------|-------------|
+| `tag_family` | `"tag36h11"` | Tag family used in this branch |
+| `tag_size` | `0.08` | **Metres.** 10cm physical tag × 0.8 = 8cm (outer black border boundary — dt_apriltags convention) |
+| Rotation fix | `R_fix = np.diag([1, -1, -1])` | Applied as `R = detection.pose_R @ R_fix` (post-multiply) |
+
+**Why the rotation fix?** The `dt_apriltags` library uses a different tag-frame convention than IsaacLab. The fix corrects a 180° rotation around the tag's X-axis. Translation (`detection.pose_t`) does **not** need correction.
+
+**Output format** (`calibration_pairs.json`):
+```json
+[
+  {
+    "image_file": "left_wrist_20260217_131204_028446.png",
+    "cam_to_tag": {
+      "rotation_matrix": [[...], [...], [...]],
+      "translation": [x, y, z]
     },
-    disable_env_checker=True,
+    "world_to_cam_base": {
+      "position": [x, y, z],
+      "rotation_matrix": [[...], [...], [...]]
+    }
+  },
+  ...
+]
+```
+
+---
+
+## Step 4: Run Eye-in-Hand Calibration (External Repo)
+
+Use `cv2.calibrateHandEye()` with the following parameter mapping:
+
+```python
+import cv2
+import numpy as np
+
+# Build input lists from calibration_pairs.json
+R_gripper2base = []   # list of 3x3 np.float64 arrays
+t_gripper2base = []   # list of (3,1) np.float64 arrays
+R_target2cam   = []   # list of 3x3 np.float64 arrays
+t_target2cam   = []   # list of (3,1) np.float64 arrays
+
+for pair in pairs:
+    R_gripper2base.append(np.array(pair["world_to_cam_base"]["rotation_matrix"], dtype=np.float64))
+    t_gripper2base.append(np.array(pair["world_to_cam_base"]["position"], dtype=np.float64).reshape(3,1))
+    R_target2cam.append(np.array(pair["cam_to_tag"]["rotation_matrix"], dtype=np.float64))
+    t_target2cam.append(np.array(pair["cam_to_tag"]["translation"], dtype=np.float64).reshape(3,1))
+
+R_cam2gripper, t_cam2gripper = cv2.calibrateHandEye(
+    R_gripper2base, t_gripper2base,
+    R_target2cam,   t_target2cam,
+    method=cv2.CALIB_HAND_EYE_PARK   # PARK or DANIILIDIS recommended
 )
-
-
-```
-- Write the environment configuration file corresponding to the task, such as pickplace_cylinder_g1_29dof_dex1_joint_env_cfg.py
-
-Import common scenes, set robot positions, and add camera configurations
-
-- Modify g1_tasks/```__init__.py```
-
-Add the new task configuration class to the ```__init__.py``` file in the g1_tasks directory as follows:
-
 ```
 
-# Copyright (c) 2025, Unitree Robotics Co., Ltd. All Rights Reserved.
-# License: Apache License, Version 2.0  
-"""Unitree G1 robot task module
-contains various task implementations for the G1 robot, such as pick and place, motion control, etc.
-"""
+**Parameter mapping explained:**
+- `R_gripper2base` / `t_gripper2base` = world→cam_base (the cam_base pose in the world frame)
+- `R_target2cam` / `t_target2cam` = cam→tag (the AprilTag pose in the camera frame)
+- **Output:** `R_cam2gripper`, `t_cam2gripper` = the solved cam_base→camera extrinsic
 
-# use relative import
-from . import pick_place_cylinder_g1_29dof_dex3
-from . import pick_place_cylinder_g1_29dof_dex1
-from . import pick_place_redblock_g1_29dof_dex1
-from . import pick_place_redblock_g1_29dof_dex3
-# export all modules
-__all__ = ["pick_place_cylinder_g1_29dof_dex3", "pick_place_cylinder_g1_29dof_dex1", "pick_place_redblock_g1_29dof_dex1", "pick_place_redblock_g1_29dof_dex3"]
+**Expected results** (validated in simulation):
+
+| Method | Rotation Error | Translation Error |
+|--------|---------------|-------------------|
+| TSAI   | ~2.1°         | ~6.6 mm           |
+| PARK   | ~1.9°         | ~6.3 mm           |
+| HORAUD | ~1.9°         | ~6.3 mm           |
+| DANIILIDIS | ~1.9°    | ~6.4 mm           |
+
+Errors measured against simulator ground truth. PARK and HORAUD are recommended. ~2° / ~6mm is consistent with monocular AprilTag pose estimation accuracy at 640×480 resolution — not a sign of pipeline error.
+
+**Validation:** Compare against the `[GT] cam_base→camera` values printed by the sim during data collection.
+
+---
+
+## Technical Notes
+
+### Shared Memory IPC Architecture
+
+The capture pipeline uses POSIX shared memory to transfer data between the Isaac Sim process and the capture tool process without blocking either side:
+
+| Channel | SHM Name | Write Rate | Content |
+|---------|----------|-----------|---------|
+| Images | `isaac_left_image_shm` | ~100 Hz | Header (48B) + raw BGR or JPEG payload |
+| Transform | `isaac_cam_base_transform_shm` | ~500 Hz | `<Q3d9d` binary: uint64 ts + 3×float64 pos + 9×float64 rot |
+
+The capture tool reads the latest value from both channels at the moment of capture. They are **not frame-locked** — there is a potential temporal skew of up to ~12ms. At human teleoperation speeds with a stationary pause before each capture, this skew is negligible for calibration purposes.
+
+### Coordinate Frame Conventions
+
+- **IsaacLab camera pose:** Uses `quat_w_ros` convention — ROS camera frame (+Z forward, +X right, -Y up)
+- **dt_apriltags output:** Same ROS/OpenCV camera convention — no frame conversion needed for translation
+- **Rotation fix:** `R_fix = np.diag([1, -1, -1])` corrects the tag-frame axis convention difference between IsaacLab and the AprilTag C library (180° around tag X-axis)
+- **Quaternion format:** `body_link_pose_w` returns `[w, x, y, z]` wxyz order
+
+### tag_size Convention (dt_apriltags)
+
+`tag_size` = the distance across the **outer edge of the black border** (excluding the white quiet zone).
+
+For tag36h11, the total tag is 10×10 cells. The black border spans 8×8 cells:
 
 ```
-### 📋 TODO List
+tag_size = full_physical_width × (8/10) = 0.10 × 0.8 = 0.08 m
+```
 
-- ⬜ Continue adding new task scenes
-- ⬜ Continue code optimization 
+The USD is authored at 5cm (0.05m) and scaled 2× in the scene config → 10cm physical size → `tag_size = 0.08`.
 
-## 🙏 Acknowledgement
+---
 
-This code builds upon following open-source code-bases. Please visit the URLs to see the respective LICENSES:
+## Regenerating the AprilTag USD
 
-1. https://github.com/isaac-sim/IsaacLab
-2. https://github.com/isaac-sim/IsaacSim
-3. https://github.com/zeromq/pyzmq
-4. https://github.com/unitreerobotics/unitree_sdk2_python
+If you need to change the texture or block dimensions, edit `create_apriltag_block.py` and re-run:
+
+```bash
+conda run -n isaaclab-unitree python assets/objects/apriltag_block/create_apriltag_block.py
+```
+
+This overwrites `apriltag_block.usd` and re-copies the texture. The `scale=(2.0, 2.0, 2.0)` in `base_scene_apriltag_calibration.py` applies on top at runtime — if you double the USD dimensions, remove the 2× scale and update `tag_size` accordingly.
+
+**Current AprilTag size flow:**
+```
+USD authored:  5cm × 5cm × 3mm
+Scene scale:   2.0 × 2.0 × 2.0
+Physical sim:  10cm × 10cm × 6mm
+tag_size:      0.08 m  (= 0.10 × 0.8, black border only)
+```
