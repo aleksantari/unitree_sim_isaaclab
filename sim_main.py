@@ -22,6 +22,7 @@ from isaaclab.app import AppLauncher
 
 from teleimager.image_server import run_isaacsim_server
 from dds.dds_create import create_dds_objects,create_dds_objects_replay
+from dds.video_dds import VideoServerDDS
 # add command line arguments
 parser = argparse.ArgumentParser(description="Unitree Simulation")
 parser.add_argument("--task", type=str, default="Isaac-PickPlace-G129-Head-Waist-Fix", help="task name")
@@ -415,6 +416,14 @@ def main():
             print(f"Failed to create dds: {e}")
             return
         print("========= create dds success =========")
+        print("========= create video dds server =========")
+        try:
+            video_server = VideoServerDDS(jpeg_quality=args_cli.camera_jpeg_quality)
+            video_server.Init()
+            video_server.Start(False)
+        except Exception as e:
+            print(f"Failed to create video DDS server: {e}")
+        print("========= create video dds server success =========")
     else:
         print("========= create dds =========")
         try:
