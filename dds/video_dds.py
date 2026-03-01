@@ -26,7 +26,7 @@ class VideoServerDDS(Server):
     def __init__(self, jpeg_quality: int = 85):
         super().__init__(VIDEO_SERVICE_NAME)  # "videohub"
         self._jpeg_quality = jpeg_quality
-        self._head_shm = None  # lazily opened on first request
+        self._shm = None  # lazily opened on first request
 
     def Init(self):
         self._SetApiVersion(VIDEO_API_VERSION)
@@ -36,13 +36,13 @@ class VideoServerDDS(Server):
 
     def _GetImageSample(self, parameter: list) -> tuple:
         try:
-            shm_name = get_shm_name('head')
+            shm_name = get_shm_name('left')
 
             # Lazily open the shared memory segment
-            if self._head_shm is None:
-                self._head_shm = shm_module.SharedMemory(name=shm_name)
+            if self._shm is None:
+                self._shm = shm_module.SharedMemory(name=shm_name)
 
-            shm = self._head_shm
+            shm = self._shm
             header_size = ctypes.sizeof(SimpleImageHeader)
 
             header_data = bytes(shm.buf[:header_size])
@@ -72,5 +72,5 @@ class VideoServerDDS(Server):
             return 1, []
         except Exception:
             # Re-open SHM next call in case it was recreated
-            self._head_shm = None
+            self._shm = None
             return 1, []
