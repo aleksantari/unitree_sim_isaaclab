@@ -106,9 +106,12 @@ class EventCfg:
         mode="reset",   # set event mode to reset
         params={
             # position range parameter
+            # DELIVERABLE: block fixed at its default pose (no randomization) so the
+            # external client can use a hardcoded ground-truth pose. Restore the
+            # original ranges to re-enable randomization later.
             "pose_range": {
-                "x": [-0.1, 0.1],  # x axis position range: -0.05 to 0.0 meter
-                "y": [-0.05, 0.05],   # y axis position range: 0.0 to 0.05 meter
+                "x": [0.0, 0.0],
+                "y": [0.0, 0.0],
             },
             # speed range parameter (empty dictionary means using default value)
             "velocity_range": {},
@@ -142,7 +145,7 @@ class PickPlaceG129DEX1BaseFixEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self):
         """Post initialization."""
         self.decimation = 2
-        self.episode_length_s = 20.0
+        self.episode_length_s = 120.0  # DELIVERABLE: long enough for a full off-board pick-place cycle
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation
         self.sim.physx.bounce_threshold_velocity = 0.01
@@ -165,7 +168,7 @@ class PickPlaceG129DEX1BaseFixEnvCfg(ManagerBasedRLEnvCfg):
             func=lambda env: base_mdp.reset_root_state_uniform(
                 env,
                 torch.arange(env.num_envs, device=env.device),
-                pose_range={"x": [-0.1, 0.1], "y": [-0.05, 0.05]},
+                pose_range={"x": [0.0, 0.0], "y": [0.0, 0.0]},  # DELIVERABLE: block fixed (no randomization)
                 velocity_range={},
                 asset_cfg=SceneEntityCfg("object"),
             )
