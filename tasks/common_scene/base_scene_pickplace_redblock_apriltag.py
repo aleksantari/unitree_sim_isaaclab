@@ -72,13 +72,9 @@ class TableRedBlockSceneCfg(InteractiveSceneCfg): # inherit from the interactive
                 contact_offset=0.01,
                 rest_offset=0.0
             ),
-            physics_material=sim_utils.RigidBodyMaterialCfg(
-                friction_combine_mode="max",
-                restitution_combine_mode="min",
-                static_friction=10,
-                dynamic_friction=1.5,
-                restitution=0.01,
-            ),
+            # NOTE: this isaaclab's (v23) UsdFileCfg has no `physics_material` kwarg,
+            # so the friction material (static_friction=10, etc., matching the original
+            # cuboid) is baked into the USD by create_redblock_apriltag.py instead.
         ),
     )
 
