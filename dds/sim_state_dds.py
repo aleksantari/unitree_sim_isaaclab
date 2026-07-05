@@ -31,9 +31,13 @@ class SimStateDDS(DDSObject):
         self.sim_state = std_msgs_msg_dds__String_()
 
         # setup the shared memory
+        # NOTE: sized for the whole scene's get_state() JSON. The single-block scene fit in 4096,
+        # but multi-prop scenes (e.g. Isaac-PickPlace-Props-...) serialize every object's root
+        # state and overflow 4088 ("Data too large for shared memory" -> rt/sim_state goes stale).
+        # 32 KiB leaves comfortable headroom (~100 objects).
         self.setup_shared_memory(
             input_shm_name="isaac_sim_state",  # read sim state data for publishing
-            input_size=4096,
+            input_size=32768,
             outputshm_flag=False
         )
 
