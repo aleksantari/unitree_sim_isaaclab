@@ -64,6 +64,43 @@ def _ensure_async_started():
         _async_started = True
 
 
+# --- head depth ZMQ publisher (feeds the robot-side cuRobo Mapper/ESDF collision world) ----
+# Decoupled from the JPEG color SHM/ImageServer path: a dedicated PUB socket streams the head
+# camera's perpendicular depth as raw float32 MILLIMETERS (Isaac renders meters -> x1000), so
+# the robot client treats sim depth byte-identically to the real ZED. Port via env
+# ISAAC_HEAD_DEPTH_PORT (default 55556 = color 55555 + 1). Bound lazily; disabled after any
+# real failure so a publish hiccup never stalls the sim observation loop.
+_depth_pub = None
+_depth_pub_off = False
+_depth_pub_port = int(os.environ.get("ISAAC_HEAD_DEPTH_PORT", "55556"))
+
+
+def _publish_head_depth(depth_m) -> None:
+    global _depth_pub, _depth_pub_off
+    if _depth_pub_off:
+        return
+    try:
+        import numpy as np
+        import zmq
+        if _depth_pub is None:
+            sock = zmq.Context.instance().socket(zmq.PUB)
+            sock.setsockopt(zmq.SNDHWM, 1)        # keep only the latest frame
+            sock.setsockopt(zmq.LINGER, 0)
+            sock.bind(f"tcp://0.0.0.0:{_depth_pub_port}")
+            _depth_pub = sock
+            print(f"[camera_state] head depth PUB on tcp://0.0.0.0:{_depth_pub_port} (float32 mm)")
+        d = np.squeeze(np.asarray(depth_m)).astype(np.float32) * 1000.0   # meters -> mm
+        d[~np.isfinite(d)] = np.nan                  # inf/no-hit -> NaN (invalid, ZED-like)
+        d[d > 1.0e7] = np.nan                        # far-clip background (>10 km) -> invalid
+        try:
+            _depth_pub.send(np.ascontiguousarray(d, dtype=np.float32).tobytes(), flags=zmq.NOBLOCK)
+        except zmq.Again:
+            pass                                     # no subscriber / HWM -> drop (normal)
+    except Exception as e:                           # never break the sim loop on depth
+        _depth_pub_off = True
+        print(f"[camera_state] head depth disabled: {e}")
+
+
 def get_camera_image(
     env: ManagerBasedRLEnv,
 ) -> dict:
@@ -117,7 +154,16 @@ def get_camera_image(
             images["head"] = head_image.numpy()
         else:
             images["head"] = head_image.cpu().numpy()
-    
+
+        # head depth -> dedicated ZMQ PUB (robot-side cuRobo collision world), at the SHM
+        # color cadence (frame_step==0). float32 mm, decoupled from the JPEG color path.
+        if _camera_cache['frame_step'] == 0:
+            _fc_out = env.scene["front_camera"].data.output
+            if "distance_to_image_plane" in _fc_out:
+                _d = _fc_out["distance_to_image_plane"][0]
+                _d = _d.numpy() if _d.device.type == 'cpu' else _d.detach().cpu().numpy()
+                _publish_head_depth(_d)
+
     # Left camera (left wrist camera)
     if "left_wrist_camera" in camera_keys:
         left_image = env.scene["left_wrist_camera"].data.output["rgb"][0]

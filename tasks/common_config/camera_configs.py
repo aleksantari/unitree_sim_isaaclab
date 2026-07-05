@@ -85,8 +85,15 @@ class CameraPresets:
     
     @classmethod
     def g1_front_camera(cls) -> CameraCfg:
-        """front camera configuration"""
-        return CameraBaseCfg.get_camera_config()
+        """front camera configuration.
+
+        Renders RGB + a perpendicular depth map (`distance_to_image_plane`) so the
+        robot-side stack gets a sim depth stream at parity with the real ZED head
+        (consumed via camera_state._publish_head_depth -> robot ZMQ depth client ->
+        cuRobo Mapper/ESDF collision world). Depth is head-only; wrist cams stay RGB.
+        """
+        return CameraBaseCfg.get_camera_config(
+            data_types=["rgb", "distance_to_image_plane"])
     @classmethod
     def h12_front_camera(cls) -> CameraCfg:
         """front camera configuration"""
