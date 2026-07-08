@@ -6,7 +6,7 @@
 # are forwarded straight to sim_main.py.
 #
 # Examples:
-#   ./launch_sim.sh                                   # AprilTag calibration (this branch), Dex3, cuda
+#   ./launch_sim.sh                                   # RedBlock pick-place, Dex3, cuda
 #   DEVICE=cpu ./launch_sim.sh                        # run on CPU
 #   TASK=Isaac-Stack-RgyBlock-G129-Dex1-Joint HAND=dex1 ./launch_sim.sh
 #   ROBOT=h1_2 HAND=inspire TASK=Isaac-PickPlace-Cylinder-H12-27dof-Inspire-Joint ./launch_sim.sh
@@ -15,7 +15,7 @@
 # Overridable env vars (with defaults):
 #   CONDA_ENV=unitree   DEVICE=cuda   ROBOT=g129
 #   HAND=dex3           (dex1 | dex3 | inspire | none)
-#   TASK=Isaac-AprilTag-Calibration-G129-Dex3-Joint
+#   TASK=Isaac-PickPlace-RedBlock-G129-Dex3-Joint
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
